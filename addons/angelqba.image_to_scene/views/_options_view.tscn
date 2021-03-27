@@ -1,0 +1,56 @@
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://addons/angelqba.image_to_scene/views/_options_view.gd" type="Script" id=1]
+[ext_resource path="res://icon.png" type="Texture" id=2]
+
+[node name="OptionsView" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_right = -877.0
+rect_min_size = Vector2( 150, 0 )
+script = ExtResource( 1 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 4.0
+margin_top = 4.0
+margin_right = -4.0
+margin_bottom = -4.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="ImagePreview" type="TextureRect" parent="VBoxContainer"]
+margin_right = 142.0
+margin_bottom = 100.0
+rect_min_size = Vector2( 0, 100 )
+texture = ExtResource( 2 )
+expand = true
+stretch_mode = 6
+
+[node name="Update" type="Button" parent="VBoxContainer"]
+margin_top = 104.0
+margin_right = 142.0
+margin_bottom = 124.0
+text = "Update"
+
+[node name="ItemList" type="ItemList" parent="VBoxContainer"]
+margin_top = 128.0
+margin_right = 142.0
+margin_bottom = 568.0
+size_flags_vertical = 3
+auto_height = true
+icon_mode = 0
+fixed_icon_size = Vector2( 132, 132 )
+
+[node name="UpdateModel" type="Button" parent="VBoxContainer"]
+margin_top = 572.0
+margin_right = 142.0
+margin_bottom = 592.0
+text = "Update Model"
+[connection signal="pressed" from="VBoxContainer/Update" to="." method="_on_Update_pressed"]
+[connection signal="pressed" from="VBoxContainer/UpdateModel" to="." method="_on_UpdateModel_pressed"]
