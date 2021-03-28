@@ -117,9 +117,7 @@ func preprocess():
 			'point_groups': []
 		}
 		
-		match(data['PageName']):
-		
-			'terrain':
+		if data['PageName'].begins_with('terrain'):
 				
 				# TODO: permitir varias "islas" independientes???
 				
@@ -131,7 +129,6 @@ func preprocess():
 
 				var index = 0
 				var not_null_index = 0
-				var min_alpha = 1000
 				for z in range(0, height):
 					for x in range(0, width):
 						var red = data['data'][index]
@@ -142,15 +139,8 @@ func preprocess():
 						var point_y = (red + green) * selected_node.heigth_scale * selected_node.total_scale
 						var point_z = z * selected_node.total_scale - height / 2 * selected_node.total_scale
 						
-#						var point_x = x 
-#						var point_y = (red + green) 
-#						var point_z = z 
-
 						if samples_per_pixel == 4:
 							var alpha = data['data'][index + 3]
-							if alpha < min_alpha:
-								min_alpha = alpha
-								print(min_alpha)
 							
 							if not alpha:
 								point_group[x][z] = null
@@ -176,7 +166,70 @@ func preprocess():
 						index += samples_per_pixel
 						
 				layer['point_groups'].append(point_group)
-	
+				
+		if data['PageName'].begins_with('water'):
+				var previous_layer = result['layers'].back()
+				var point_group = []
+				for i in range(0, width):
+					var arr = []
+					arr.resize(height)
+					point_group.append(arr)
+
+				var index = 0
+				var not_null_index = 0
+				for z in range(0, height):
+					for x in range(0, width):
+						var red = data['data'][index]
+						var green = data['data'][index + 1]
+						var blue = data['data'][index + 2]
+						
+						var point_x = x * selected_node.total_scale - width / 2 * selected_node.total_scale
+						var point_z = z * selected_node.total_scale - height / 2 * selected_node.total_scale
+						var point_y = 255 * selected_node.heigth_scale * selected_node.total_scale - (blue) * selected_node.heigth_scale * selected_node.total_scale
+						
+						if point_y == null:
+							continue
+						
+						if samples_per_pixel == 4:
+							var alpha = data['data'][index + 3]
+							
+							if not alpha:
+								point_group[x][z] = null
+								index += samples_per_pixel
+								continue
+							else:
+								var ratio = alpha / 255.0
+								
+#								point_x *= ratio
+								point_y *= ratio
+#								point_z *= ratio
+
+						var no_previous_point = false
+						for pg in previous_layer['point_groups']:
+							if pg[x][z]:
+								var tmp = pg[x][z]['vector'].y
+								pg[x][z]['vector'].y -= point_y
+								point_y = tmp
+							else:
+								no_previous_point = true
+								
+						if no_previous_point:
+							continue
+								
+						point_group[x][z] = {
+							'vector': Vector3(
+								point_x, 
+								point_y, 
+								point_z
+							),
+							'index': not_null_index
+						}
+						
+						not_null_index += 1
+						index += samples_per_pixel
+						
+				layer['point_groups'].append(point_group)
+				pass
 		result['layers'].append(layer)
 		
 	return result
@@ -197,7 +250,9 @@ func update_model():
 		var uvs = PoolVector2Array()
 		var normals = PoolVector3Array()
 		var indices = PoolIntArray()
-		if data['name'] == 'terrain':
+#		if data['name'] == 'water':
+#			continue
+		if true:
 			var width = data['width']
 			var height = data['height']
 
@@ -289,7 +344,16 @@ func update_model():
 	#	surfaceTool.generate_tangents()
 		mesh = surfaceTool.commit()
 		
+		var mat = SpatialMaterial.new()
+		if data['name'].begins_with('terrain'):
+			mat.albedo_color = Color(.5, .25, 0)
+			
+		if data['name'].begins_with('water'):
+			mat.albedo_color = Color(.5, .5, 1, .5)
+			mat.flags_transparent = true
+		
 		mesh_instance.mesh = mesh
+		mesh_instance.material_override = mat
 
 		selected_node.add_child(mesh_instance)
 		mesh_instance.owner = get_editor_interface().get_edited_scene_root()											
