@@ -98,137 +98,199 @@ func update_image_preview():
 			icon_texture.create_from_image(icon, 0)
 			layers_view.add_item(i.PageName, icon_texture)
 		
-func update_model():
-	var arr = []
-	arr.resize(Mesh.ARRAY_MAX)
-	var verts = PoolVector3Array()
-	var uvs = PoolVector2Array()
-	var normals = PoolVector3Array()
-	var indices = PoolIntArray()
+func preprocess():
+	var result = {
+		'layers': []
+	}
 	
-	
-#	verts.append(Vector3(0, 0, 0))
-#	verts.append(Vector3(100, 0, 0))
-#	verts.append(Vector3(0, 0, 100))
-#	verts.append(Vector3(100, 0, 100))
-#
-#	indices.append(0)
-#	indices.append(1)
-#	indices.append(2)
-#
-#	indices.append(1)
-#	indices.append(3)
-#	indices.append(2)
-
-
-#	var tmpMesh = Mesh.new()
-#	var vertices = PoolVector3Array()
-#	var UVs = PoolVector2Array()
-#	var mat = SpatialMaterial.new()
-#	var color = Color(0.9, 0.1, 0.1)
-#
-#	mat.albedo_color = color
-#
-#	var st = SurfaceTool.new()
-#	st.begin(Mesh.PRIMITIVE_TRIANGLE_FAN)
-#	st.set_material(mat)
-#
 	for data in selected_node.image_data_resource.data:
+		
+		var width = data['ImageWidth']
+		var height = data['ImageLength']
+		var samples_per_pixel = data['SamplesPerPixel']
+		
+		var layer = {
+			'name': data['PageName'],
+			'width': width,
+			'height': height,
+			'samples_per_pixel': samples_per_pixel,
+			'point_groups': []
+		}
+		
+		match(data['PageName']):
+		
+			'terrain':
+				
+				# TODO: permitir varias "islas" independientes???
+				
+				var point_group = []
+				for i in range(0, width):
+					var arr = []
+					arr.resize(height)
+					point_group.append(arr)
 
-		if data['PageName'] == 'terrain':
-			var width = data['ImageWidth']
-			var height = data['ImageLength']
-
-			var index = 0
-			for z in range(0, height):
-				for x in range(0, width):
-					var red = data['data'][index]
-					var green = data['data'][index + 1]
-					var blue = data['data'][index + 2]
-
-					verts.push_back(
-						Vector3(
-							x * selected_node.total_scale - width / 2 * selected_node.total_scale, 
-							(red + green) * selected_node.heigth_scale * selected_node.total_scale, 
-							z * selected_node.total_scale - height / 2 * selected_node.total_scale
-						)
-					)
-					var normal = Vector3.UP
-#					
-					uvs.push_back(Vector2(x / width, z / height))
-					
-					if z < height - 1:
-						if x < width - 1:
-							indices.append(x + z * width)
-							indices.append(x + z * width + 1)
-							indices.append(x + (z + 1) * width)
-							
-						if x > 0:
-							indices.append(x + z * width)
-							indices.append(x + (z + 1) * width)
-							indices.append(x + (z + 1) * width - 1)
-
-					normals.push_back(normal)
-					index += data['SamplesPerPixel']
+				var index = 0
+				var not_null_index = 0
+				var min_alpha = 1000
+				for z in range(0, height):
+					for x in range(0, width):
+						var red = data['data'][index]
+						var green = data['data'][index + 1]
+						var blue = data['data'][index + 2]
 						
-#
-#	for v in vertices.size(): 
-#		st.add_color(color)
-##		st.add_uv(UVs[v])
-#		st.add_uv(Vector2(vertices[v].x, vertices[v].z))
-#		st.add_vertex(vertices[v])
-#
-#	st.commit(tmpMesh)
-#
+						var point_x = x * selected_node.total_scale - width / 2 * selected_node.total_scale
+						var point_y = (red + green) * selected_node.heigth_scale * selected_node.total_scale
+						var point_z = z * selected_node.total_scale - height / 2 * selected_node.total_scale
+						
+#						var point_x = x 
+#						var point_y = (red + green) 
+#						var point_z = z 
+
+						if samples_per_pixel == 4:
+							var alpha = data['data'][index + 3]
+							if alpha < min_alpha:
+								min_alpha = alpha
+								print(min_alpha)
+							
+							if not alpha:
+								point_group[x][z] = null
+								index += samples_per_pixel
+								continue
+							else:
+								var ratio = alpha / 255.0
+								
+#								point_x *= ratio
+								point_y *= ratio
+#								point_z *= ratio
+								
+						point_group[x][z] = {
+							'vector': Vector3(
+								point_x, 
+								point_y, 
+								point_z
+							),
+							'index': not_null_index
+						}
+						
+						not_null_index += 1
+						index += samples_per_pixel
+						
+				layer['point_groups'].append(point_group)
+	
+		result['layers'].append(layer)
+		
+	return result
+		
+func update_model():
+	
 	for n in selected_node.get_children():
 		selected_node.remove_child(n)
+	
+	var preprocessed_layers = preprocess()
 #
-#	var mesh_instance = MeshInstance.new()
-#	mesh_instance.mesh = tmpMesh
+	for data in preprocessed_layers['layers']:
 
-	
-	
-	arr[Mesh.ARRAY_VERTEX] = verts
-	arr[Mesh.ARRAY_TEX_UV] = uvs
-#	arr[Mesh.ARRAY_NORMAL] = normals
-	arr[Mesh.ARRAY_INDEX] = indices
-	
-	var mesh_instance = MeshInstance.new()
-	var mesh: Mesh = Mesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-	
-	var mdt = MeshDataTool.new()
-	mdt.create_from_surface(mesh, 0)
-	
-	# Calculate vertex normals, face-by-face.
-	for i in range(mdt.get_face_count()):
-		# Get the index in the vertex array.
-		var a = mdt.get_face_vertex(i, 0)
-		var b = mdt.get_face_vertex(i, 1)
-		var c = mdt.get_face_vertex(i, 2)
-		# Get vertex position using vertex index.
-		var ap = mdt.get_vertex(a)
-		var bp = mdt.get_vertex(b)
-		var cp = mdt.get_vertex(c)
-		# Calculate face normal.
-		var n = (bp - cp).cross(ap - bp).normalized()
-		# Add face normal to current vertex normal.
-		# This will not result in perfect normals, but it will be close.
-		mdt.set_vertex_normal(a, n + mdt.get_vertex_normal(a))
-		mdt.set_vertex_normal(b, n + mdt.get_vertex_normal(b))
-		mdt.set_vertex_normal(c, n + mdt.get_vertex_normal(c))
+		var arr = []
 		
-	# Run through vertices one last time to normalize normals and
-	# set color to normal.
-	for i in range(mdt.get_vertex_count()):
-		var v = mdt.get_vertex_normal(i).normalized()
-		mdt.set_vertex_normal(i, v)
-		mdt.set_vertex_color(i, Color(v.x, v.y, v.z))
+		arr.resize(Mesh.ARRAY_MAX)
+		var verts = PoolVector3Array()
+		var uvs = PoolVector2Array()
+		var normals = PoolVector3Array()
+		var indices = PoolIntArray()
+		if data['name'] == 'terrain':
+			var width = data['width']
+			var height = data['height']
 
-	mesh.surface_remove(0)
-	mdt.commit_to_surface(mesh)
+			for point_group in data['point_groups']:
+				for z in range(0, height):
+					for x in range(0, width):
+						if point_group[x][z]:
+							verts.push_back(point_group[x][z]['vector'])
+							uvs.push_back(Vector2(x / width, z / height))
+							
+							if z < height - 1 and x < width - 1:
+								var current_point = point_group[x][z]
+								var plus_x = point_group[x + 1][z]
+								var plus_z = point_group[x][z + 1]
+								var plus_xz = point_group[x + 1][z + 1]
+								
+								if plus_x and plus_xz and plus_z:
+									#variante 1
+									print('variante 1')
+									if plus_x and plus_xz:
+										indices.append(current_point['index'])
+										indices.append(plus_x['index'])
+										indices.append(plus_xz['index'])
+										
+									if plus_z and plus_xz:
+										indices.append(current_point['index'])
+										indices.append(plus_xz['index'])
+										indices.append(plus_z['index'])
+								else:
+									print('variante 2')
+									if not plus_x and not plus_z and not plus_xz:
+										print('nada de nada')
+									else:
+										var other_points_count = 0
+										if plus_x:
+											other_points_count += 1
+										
+										if plus_z:
+											other_points_count += 1
+											
+										if plus_xz:
+											other_points_count += 1
+											
+										# si hay solo otro punto no puedo hacer un triangulo
+										if other_points_count == 2:
+											if not plus_x:
+												print('valta plus x')
+												indices.append(current_point['index'])
+												indices.append(plus_xz['index'])
+												indices.append(plus_z['index'])
+												
+											if not plus_z:
+												print('valta plus z')
+												indices.append(current_point['index'])
+												indices.append(plus_x['index'])
+												indices.append(plus_xz['index'])
+												
+											if not plus_xz:
+												print('valta plus xz')
+												indices.append(current_point['index'])
+												indices.append(plus_x['index'])
+												indices.append(plus_z['index'])
+						else:
+							if z < height - 1 and x < width - 1:
+								var plus_x = point_group[x + 1][z]
+								var plus_z = point_group[x][z + 1]
+								var plus_xz = point_group[x + 1][z + 1]
+								
+								if plus_x and plus_xz and plus_z:
+									print('variante 3')
+									if plus_x and plus_z and plus_xz:
+										indices.append(plus_x['index'])
+										indices.append(plus_xz['index'])
+										indices.append(plus_z['index'])
+		
+		arr[Mesh.ARRAY_VERTEX] = verts
+		arr[Mesh.ARRAY_TEX_UV] = uvs
+	#	arr[Mesh.ARRAY_NORMAL] = normals
+		arr[Mesh.ARRAY_INDEX] = indices
+		
+		var mesh_instance = MeshInstance.new()
+		var mesh: Mesh = Mesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+		
+		var surfaceTool = SurfaceTool.new()
+	#	surfaceTool.add_smooth_group(true)
+		surfaceTool.append_from(mesh, 0, Transform.IDENTITY)
+		surfaceTool.generate_normals()
+	#	surfaceTool.generate_tangents()
+		mesh = surfaceTool.commit()
+		
+		mesh_instance.mesh = mesh
+
+		selected_node.add_child(mesh_instance)
+		mesh_instance.owner = get_editor_interface().get_edited_scene_root()											
 	
-	mesh_instance.mesh = mesh
-
-	selected_node.add_child(mesh_instance)
-	mesh_instance.owner = get_editor_interface().get_edited_scene_root()
