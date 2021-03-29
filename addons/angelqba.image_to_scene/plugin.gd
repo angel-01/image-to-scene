@@ -1,6 +1,25 @@
 tool
 extends EditorPlugin
 
+# TODO:
+# -refactor: rendeadores plugueables
+# -permitir especificar el procesador/rendeador en el nombre del layout.
+#	algo como: terrain:SimpleTerrainProcesor:SimpleTerrainRender
+
+# SUBIR A GIT:
+#	-COMENTAR
+#	-DOCUMENTAR
+#	-SUBIR A GIT
+#	-PUBLICAR
+#		-TWITTER
+#		-REDDIT
+#		-ITCH.IO
+
+# -adicionar zonas de objetos. integrar con addon "scatter"
+# TODO: permitir varias "islas" independientes???
+# optimizar? si una capa no fue modificada en la imagen, no volver a generarla?
+
+
 var tiff_loader = preload("res://addons/angelqba.image_to_scene/tools/tiff_loader.gd").new()
 
 # A class member to hold the dock during the plugin life cycle.
@@ -9,6 +28,7 @@ var _options_view = preload("res://addons/angelqba.image_to_scene/views/_options
 var _editor_selection
 var selected_node: Spatial
 var _image_to_scene_type = preload("res://addons/angelqba.image_to_scene/image_to_scene.gd")
+var ProcessorManager = null
 
 func _enter_tree():
 	# Initialization of the plugin goes here.
@@ -17,7 +37,7 @@ func _enter_tree():
 	
 	var base_control = get_editor_interface().get_base_control()
 	_options_view.base_control = base_control
-	_options_view.call_deferred("setup_dialogs", base_control)
+#	_options_view.call_deferred("setup_dialogs", base_control)
 	_options_view.connect('update_image_preview', self, 'update_image_preview')
 	_options_view.connect('update_model', self, 'update_model')
 	# Load the dock scene and instance it.
@@ -30,12 +50,20 @@ func _enter_tree():
 	_editor_selection.connect("selection_changed", self, "_on_selection_changed")
 #	connect("scene_changed", self, "_on_scene_changed")
 
-
+	# Register processor manager singleton
+#	add_autoload_singleton('ProcessorManager', "res://addons/angelqba.image_to_scene/processor_manager.gd")
+	var processor_manager = preload("res://addons/angelqba.image_to_scene/processor_manager.gd").new()
+	
+	processor_manager.connect('ready', self, 'register_processors')
+	
+#	get_tree().root.add_child(processor_manager)
+	get_tree().root.call_deferred('add_child', processor_manager)
+	
 func _exit_tree():
 	# Clean-up of the plugin goes here.
 	# Always remember to remove it from the engine when deactivated.
 	remove_custom_type("ImageToScene")
-	
+	remove_autoload_singleton('ProcessorManager')
 	
 	# Clean-up of the plugin goes here.
 	# Remove the dock.
@@ -99,139 +127,59 @@ func update_image_preview():
 			layers_view.add_item(i.PageName, icon_texture)
 		
 func preprocess():
+	var start = OS.get_ticks_msec()
+	var time_terrain = 0.0
+	var time_water = 0.0
 	var result = {
 		'layers': []
 	}
-	
 	for data in selected_node.image_data_resource.data:
 		
-		var width = data['ImageWidth']
-		var height = data['ImageLength']
-		var samples_per_pixel = data['SamplesPerPixel']
+#		var width = data['ImageWidth']
+#		var height = data['ImageLength']
+#		var samples_per_pixel = data['SamplesPerPixel']
 		
-		var layer = {
-			'name': data['PageName'],
-			'width': width,
-			'height': height,
-			'samples_per_pixel': samples_per_pixel,
-			'point_groups': []
-		}
-		
+		var layer
+#		var layer = {
+#			'name': data['PageName'],
+#			'width': width,
+#			'height': height,
+#			'samples_per_pixel': samples_per_pixel,
+#			'point_groups': []
+#		}
+		print('selected node ', selected_node)
 		if data['PageName'].begins_with('terrain'):
-				
-				# TODO: permitir varias "islas" independientes???
-				
-				var point_group = []
-				for i in range(0, width):
-					var arr = []
-					arr.resize(height)
-					point_group.append(arr)
-
-				var index = 0
-				var not_null_index = 0
-				for z in range(0, height):
-					for x in range(0, width):
-						var red = data['data'][index]
-						var green = data['data'][index + 1]
-						var blue = data['data'][index + 2]
-						
-						var point_x = x * selected_node.total_scale - width / 2 * selected_node.total_scale
-						var point_y = (red + green) * selected_node.heigth_scale * selected_node.total_scale
-						var point_z = z * selected_node.total_scale - height / 2 * selected_node.total_scale
-						
-						if samples_per_pixel == 4:
-							var alpha = data['data'][index + 3]
-							
-							if not alpha:
-								point_group[x][z] = null
-								index += samples_per_pixel
-								continue
-							else:
-								var ratio = alpha / 255.0
-								
-#								point_x *= ratio
-								point_y *= ratio
-#								point_z *= ratio
-								
-						point_group[x][z] = {
-							'vector': Vector3(
-								point_x, 
-								point_y, 
-								point_z
-							),
-							'index': not_null_index
-						}
-						
-						not_null_index += 1
-						index += samples_per_pixel
-						
-				layer['point_groups'].append(point_group)
+				var s = OS.get_ticks_msec()
+				# TODO: seleccinar dinamicamente
+				var processor = ProcessorManager.processors['terrain']['SimpleTerrainProcessor']
+				layer = processor.process(
+					selected_node.image_data_resource.data, 
+					data, 
+					result, 
+					selected_node
+				)
+				time_terrain = OS.get_ticks_msec() - s
 				
 		if data['PageName'].begins_with('water'):
-				var previous_layer = result['layers'].back()
-				var point_group = []
-				for i in range(0, width):
-					var arr = []
-					arr.resize(height)
-					point_group.append(arr)
-
-				var index = 0
-				var not_null_index = 0
-				for z in range(0, height):
-					for x in range(0, width):
-						var red = data['data'][index]
-						var green = data['data'][index + 1]
-						var blue = data['data'][index + 2]
-						
-						var point_x = x * selected_node.total_scale - width / 2 * selected_node.total_scale
-						var point_z = z * selected_node.total_scale - height / 2 * selected_node.total_scale
-						var point_y = 255 * selected_node.heigth_scale * selected_node.total_scale - (blue) * selected_node.heigth_scale * selected_node.total_scale
-						
-						if point_y == null:
-							continue
-						
-						if samples_per_pixel == 4:
-							var alpha = data['data'][index + 3]
-							
-							if not alpha:
-								point_group[x][z] = null
-								index += samples_per_pixel
-								continue
-							else:
-								var ratio = alpha / 255.0
-								
-#								point_x *= ratio
-								point_y *= ratio
-#								point_z *= ratio
-
-						var no_previous_point = false
-						for pg in previous_layer['point_groups']:
-							if pg[x][z]:
-								var tmp = pg[x][z]['vector'].y
-								pg[x][z]['vector'].y -= point_y
-								point_y = tmp
-							else:
-								no_previous_point = true
-								
-						if no_previous_point:
-							continue
-								
-						point_group[x][z] = {
-							'vector': Vector3(
-								point_x, 
-								point_y, 
-								point_z
-							),
-							'index': not_null_index
-						}
-						
-						not_null_index += 1
-						index += samples_per_pixel
-						
-				layer['point_groups'].append(point_group)
-				pass
+				var s = OS.get_ticks_msec()
+				var processor = ProcessorManager.processors['water']['SimpleWaterProcessor']
+				layer = processor.process(
+					selected_node.image_data_resource.data, 
+					data, 
+					result, 
+					selected_node
+				)
+				time_water = OS.get_ticks_msec() - s
+				
 		result['layers'].append(layer)
 		
+	var total_time = OS.get_ticks_msec() - start
+	print('preprocess time: ', total_time)
+	print('time_terrain time: ', time_terrain)
+	print('time_water time: ', time_water)
+	print('terrain %: ', float(time_terrain) / total_time * 100.0)
+	print('water %: ', float(time_water) / total_time * 100.0)
+	
 	return result
 		
 func update_model():
@@ -271,7 +219,6 @@ func update_model():
 								
 								if plus_x and plus_xz and plus_z:
 									#variante 1
-									print('variante 1')
 									if plus_x and plus_xz:
 										indices.append(current_point['index'])
 										indices.append(plus_x['index'])
@@ -282,9 +229,8 @@ func update_model():
 										indices.append(plus_xz['index'])
 										indices.append(plus_z['index'])
 								else:
-									print('variante 2')
 									if not plus_x and not plus_z and not plus_xz:
-										print('nada de nada')
+										pass
 									else:
 										var other_points_count = 0
 										if plus_x:
@@ -299,19 +245,16 @@ func update_model():
 										# si hay solo otro punto no puedo hacer un triangulo
 										if other_points_count == 2:
 											if not plus_x:
-												print('valta plus x')
 												indices.append(current_point['index'])
 												indices.append(plus_xz['index'])
 												indices.append(plus_z['index'])
 												
 											if not plus_z:
-												print('valta plus z')
 												indices.append(current_point['index'])
 												indices.append(plus_x['index'])
 												indices.append(plus_xz['index'])
 												
 											if not plus_xz:
-												print('valta plus xz')
 												indices.append(current_point['index'])
 												indices.append(plus_x['index'])
 												indices.append(plus_z['index'])
@@ -322,7 +265,6 @@ func update_model():
 								var plus_xz = point_group[x + 1][z + 1]
 								
 								if plus_x and plus_xz and plus_z:
-									print('variante 3')
 									if plus_x and plus_z and plus_xz:
 										indices.append(plus_x['index'])
 										indices.append(plus_xz['index'])
@@ -358,3 +300,14 @@ func update_model():
 		selected_node.add_child(mesh_instance)
 		mesh_instance.owner = get_editor_interface().get_edited_scene_root()											
 	
+func register_processors():
+	ProcessorManager = get_tree().root.get_node("ProcessorManager")
+	
+	# Register processors
+	var processors = [
+		preload("res://addons/angelqba.image_to_scene/processors/simple_terrain_processor.gd").new(),
+		preload("res://addons/angelqba.image_to_scene/processors/simple_water_processor.gd").new()
+	]
+	
+	for p in processors:
+		ProcessorManager.processors[p.processor_type][p.processor_name] = p
