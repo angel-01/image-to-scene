@@ -1,13 +1,11 @@
 extends Node
 
 func load_tiff_image(path):
-	print('load_tiff_image')
 	var result = load_tiff(path)
 	return load_tiff_image_from_data(result)
 	
 	
 func load_tiff_image_from_data(data):
-	print('load_tiff_image_from_data')
 	var final_image: Image = null
 	for i in data:
 		var image = get_image_from_layer_data(i)
@@ -21,12 +19,8 @@ func load_tiff_image_from_data(data):
 	return final_image
 	
 func get_image_from_layer_data(layer_data):
-	print('get_image_from_layer_data')
 	var image: Image = Image.new()
-	
 	var format
-	
-	print(layer_data['SamplesPerPixel'])
 	
 	if layer_data['SamplesPerPixel'] == 3:
 		format = Image.FORMAT_RGB8
@@ -47,7 +41,7 @@ func load_tiff(path):
 	f.open(path, File.READ)
 	var header = "%x" % f.get_16()
 	if not header in ['4949', '4D4D']:
-		print('La imagen no es tiff')
+		print('This image is not a TIFF one')
 		return
 		
 	f.get_16()
@@ -63,8 +57,8 @@ func load_tiff(path):
 	return final_result
 
 func read_idf(f: File, offset: int):
-	print()
-	print()
+#	print()
+#	print()
 	if offset == 0:
 		return
 	
@@ -144,7 +138,7 @@ func read_idf(f: File, offset: int):
 			256:
 				ImageWidth = value_offset
 				
-		print('tag ', tag, ', ', 'field type ', field_type, ', ',  'number of values ', number_of_values, ', ', 'value offset ', value_offset)
+#		print('tag ', tag, ', ', 'field type ', field_type, ', ',  'number of values ', number_of_values, ', ', 'value offset ', value_offset)
 	
 	var new_offset = f.get_32()
 	var data: PoolByteArray

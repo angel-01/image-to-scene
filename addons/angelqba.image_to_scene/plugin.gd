@@ -2,10 +2,6 @@ tool
 extends EditorPlugin
 
 # TODO:
-# -refactor: rendeadores plugueables
-# -permitir especificar el procesador/rendeador en el nombre del layout.
-#	algo como: terrain:SimpleTerrainProcesor:SimpleTerrainRender
-
 # SUBIR A GIT:
 #	-COMENTAR
 #	-DOCUMENTAR
@@ -20,56 +16,54 @@ extends EditorPlugin
 # optimizar? si una capa no fue modificada en la imagen, no volver a generarla?
 
 
-var tiff_loader = preload("res://addons/angelqba.image_to_scene/tools/tiff_loader.gd").new()
+var tiff_loader
 
-# A class member to hold the dock during the plugin life cycle.
-var dock
-var _options_view = preload("res://addons/angelqba.image_to_scene/views/_options_view.tscn").instance()
+# options panel. Shown when an ImageToScene node is selected
+var _options_view: Node
+# editor's current selection
 var _editor_selection
+# stores current selected ImageToScene node
 var selected_node: Spatial
+# ImageToScene type. Used to compare the selected node in the editor
 var _image_to_scene_type = preload("res://addons/angelqba.image_to_scene/image_to_scene.gd")
+# Where processors are registered
 var ProcessorManager = null
+# Wehere renrers are registered
+var RenderManager = null
 
 func _enter_tree():
 	# Initialization of the plugin goes here.
+	
+	_options_view  = preload("res://addons/angelqba.image_to_scene/views/_options_view.tscn").instance()
+	tiff_loader = preload("res://addons/angelqba.image_to_scene/tools/tiff_loader.gd").new()
 	# Add the new type with a name, a parent type, a script and an icon.
 	add_custom_type("ImageToScene", "Spatial", preload("image_to_scene.gd"), preload("icon.png"))
 	
 	var base_control = get_editor_interface().get_base_control()
 	_options_view.base_control = base_control
-#	_options_view.call_deferred("setup_dialogs", base_control)
 	_options_view.connect('update_image_preview', self, 'update_image_preview')
 	_options_view.connect('update_model', self, 'update_model')
-	# Load the dock scene and instance it.
-#	dock = preload("res://addons/angelqba.fsm/dock.tscn").instance()
 
-	# Add the loaded scene to the docks.
-#	add_control_to_bottom_panel(dock, 'FSM')
-	# Note that LEFT_UL means the left of the editor, upper-left dock.
 	_editor_selection = get_editor_interface().get_selection()
 	_editor_selection.connect("selection_changed", self, "_on_selection_changed")
 #	connect("scene_changed", self, "_on_scene_changed")
 
-	# Register processor manager singleton
-#	add_autoload_singleton('ProcessorManager', "res://addons/angelqba.image_to_scene/processor_manager.gd")
-	var processor_manager = preload("res://addons/angelqba.image_to_scene/processor_manager.gd").new()
+	ProcessorManager = preload("res://addons/angelqba.image_to_scene/processor_manager.gd").new()
+	ProcessorManager.connect('ready', self, 'register_processors')
+	RenderManager = preload("res://addons/angelqba.image_to_scene/render_manager.gd").new()
+	RenderManager.connect('ready', self, 'register_renderers')
 	
-	processor_manager.connect('ready', self, 'register_processors')
-	
-#	get_tree().root.add_child(processor_manager)
-	get_tree().root.call_deferred('add_child', processor_manager)
+	get_tree().root.call_deferred('add_child', ProcessorManager)
+	get_tree().root.call_deferred('add_child', RenderManager)
 	
 func _exit_tree():
 	# Clean-up of the plugin goes here.
 	# Always remember to remove it from the engine when deactivated.
 	remove_custom_type("ImageToScene")
-	remove_autoload_singleton('ProcessorManager')
-	
-	# Clean-up of the plugin goes here.
-	# Remove the dock.
-#	remove_control_from_bottom_panel(dock)
-	# Erase the control from the memory.
-#	dock.free()
+	_options_view.queue_free()
+	tiff_loader.queue_free()
+	ProcessorManager.queue_free()
+	RenderManager.queue_free()
 
 func _on_selection_changed() -> void:
 	var selected = _editor_selection.get_selected_nodes()
@@ -79,21 +73,17 @@ func _on_selection_changed() -> void:
 		# will keep the path editor panel on top so we do the same.
 		return
 		
+	# if this is an ImageToScene node
 	if selected[0] is _image_to_scene_type:
 		selected_node = selected[0]
 		selected_node.connect('image_changed', self, 'update_image_preview')
 		update_image_preview()
 		_show_options_panel()
-#		_scatter_path_gizmo_plugin.set_selection(selected[0])
-#		selected[0].undo_redo = get_undo_redo()
-#
-#		if _gizmo_options.snap_to_colliders():
-#			_on_snap_to_colliders_enabled()
+		
 	else:
 		selected_node.disconnect('image_changed', self, 'update_image_preview')
 		selected_node = null
 		_hide_options_panel()
-#		_scatter_path_gizmo_plugin.set_selection(null)
 
 func _show_options_panel():
 	if not _options_view.get_parent():
@@ -103,82 +93,94 @@ func _hide_options_panel():
 	if _options_view.get_parent():
 		remove_control_from_container(CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, _options_view)
 
+# generate images for options panel
 func update_image_preview():
 	if selected_node and selected_node.image_path:
+		# load data from tiff
 		var data = tiff_loader.load_tiff(selected_node.image_path)
-#		selected_node.image_data_resource.data = data
 		var data_resource = ImageDataReource.new()
 		data_resource.data = data
+		# save tiff data in a resource 
 		ResourceSaver.save(selected_node.image_data_resource.resource_path, data_resource)
 		selected_node.image_data_resource = data_resource
+		# generate image from tiff data
 		var image: Image = tiff_loader.load_tiff_image_from_data(data)
 
 		var t = ImageTexture.new()
 		t.create_from_image(image, 0)
+		# show image in options panel
 		_options_view.find_node('ImagePreview').texture = t
 		
+		# generate preview from tiff layers
 		var layers_view: ItemList = _options_view.find_node('ItemList')
 		layers_view.clear()
 		for i in data:
-			print(i)
 			var icon = tiff_loader.get_image_from_layer_data(i)
 			var icon_texture = ImageTexture.new()
 			icon_texture.create_from_image(icon, 0)
 			layers_view.add_item(i.PageName, icon_texture)
 		
+# convert color data from tiff image to coords and height values
 func preprocess():
+	
+	# me quede aqui comentando
+	
 	var start = OS.get_ticks_msec()
-	var time_terrain = 0.0
-	var time_water = 0.0
+	var measurements = []
 	var result = {
 		'layers': []
 	}
 	for data in selected_node.image_data_resource.data:
+		var measurement = {
+			"start": OS.get_ticks_msec(),
+			"end": '',
+			"duration": '',
+			"name": data['PageName']
+		}
+		var parts = data['PageName'].split(':')
+		var re = RegEx.new()
+		re.compile(' +')
 		
-#		var width = data['ImageWidth']
-#		var height = data['ImageLength']
-#		var samples_per_pixel = data['SamplesPerPixel']
+		# type is the first block without spaces. 
+		#	ex: terrain:MyTerrainProcessor -> terrain
+		#	my terrain:MyTerrainProcessor -> my
+		var type = re.sub(parts[0], '', true)
+		var processor_type
 		
-		var layer
-#		var layer = {
-#			'name': data['PageName'],
-#			'width': width,
-#			'height': height,
-#			'samples_per_pixel': samples_per_pixel,
-#			'point_groups': []
-#		}
-		print('selected node ', selected_node)
-		if data['PageName'].begins_with('terrain'):
-				var s = OS.get_ticks_msec()
-				# TODO: seleccinar dinamicamente
-				var processor = ProcessorManager.processors['terrain']['SimpleTerrainProcessor']
-				layer = processor.process(
-					selected_node.image_data_resource.data, 
-					data, 
-					result, 
-					selected_node
-				)
-				time_terrain = OS.get_ticks_msec() - s
+		if len(parts) > 1:
+			if parts[1]:
+				processor_type = parts[1]
 				
-		if data['PageName'].begins_with('water'):
-				var s = OS.get_ticks_msec()
-				var processor = ProcessorManager.processors['water']['SimpleWaterProcessor']
-				layer = processor.process(
-					selected_node.image_data_resource.data, 
-					data, 
-					result, 
-					selected_node
-				)
-				time_water = OS.get_ticks_msec() - s
+		if not processor_type:
+			if not type in ProcessorManager.processors:
+				print("No processor registered for type %s" % type)
+				continue
 				
+			for p in ProcessorManager.processors[type]:
+				processor_type = p
+				break
+				
+		var processor = ProcessorManager.processors[type][processor_type]
+		var layer = processor.process(
+			selected_node.image_data_resource.data, 
+			data, 
+			result, 
+			selected_node
+		)
+		
 		result['layers'].append(layer)
 		
+		measurement['end'] = OS.get_ticks_msec()
+		measurement["duration"] = measurement['end'] - measurement['start']
+		
+		measurements.append(measurement)
+		
 	var total_time = OS.get_ticks_msec() - start
+	print()
 	print('preprocess time: ', total_time)
-	print('time_terrain time: ', time_terrain)
-	print('time_water time: ', time_water)
-	print('terrain %: ', float(time_terrain) / total_time * 100.0)
-	print('water %: ', float(time_water) / total_time * 100.0)
+	
+	for i in measurements:
+		print(i['name'], ", duration: ", i['duration'], ', percent: ', float(i['duration']) / total_time * 100.0)
 	
 	return result
 		
@@ -189,116 +191,59 @@ func update_model():
 	
 	var preprocessed_layers = preprocess()
 #
+	var start = OS.get_ticks_msec()
+	var measurements = []
+	var result = {
+		'layers': []
+	}
 	for data in preprocessed_layers['layers']:
-
-		var arr = []
+		var measurement = {
+			"start": OS.get_ticks_msec(),
+			"end": '',
+			"duration": '',
+			"name": data['name']
+		}
+		var parts = data['name'].split(':')
+		var re = RegEx.new()
+		re.compile(' +')
 		
-		arr.resize(Mesh.ARRAY_MAX)
-		var verts = PoolVector3Array()
-		var uvs = PoolVector2Array()
-		var normals = PoolVector3Array()
-		var indices = PoolIntArray()
-#		if data['name'] == 'water':
-#			continue
-		if true:
-			var width = data['width']
-			var height = data['height']
-
-			for point_group in data['point_groups']:
-				for z in range(0, height):
-					for x in range(0, width):
-						if point_group[x][z]:
-							verts.push_back(point_group[x][z]['vector'])
-							uvs.push_back(Vector2(x / width, z / height))
-							
-							if z < height - 1 and x < width - 1:
-								var current_point = point_group[x][z]
-								var plus_x = point_group[x + 1][z]
-								var plus_z = point_group[x][z + 1]
-								var plus_xz = point_group[x + 1][z + 1]
-								
-								if plus_x and plus_xz and plus_z:
-									#variante 1
-									if plus_x and plus_xz:
-										indices.append(current_point['index'])
-										indices.append(plus_x['index'])
-										indices.append(plus_xz['index'])
-										
-									if plus_z and plus_xz:
-										indices.append(current_point['index'])
-										indices.append(plus_xz['index'])
-										indices.append(plus_z['index'])
-								else:
-									if not plus_x and not plus_z and not plus_xz:
-										pass
-									else:
-										var other_points_count = 0
-										if plus_x:
-											other_points_count += 1
-										
-										if plus_z:
-											other_points_count += 1
-											
-										if plus_xz:
-											other_points_count += 1
-											
-										# si hay solo otro punto no puedo hacer un triangulo
-										if other_points_count == 2:
-											if not plus_x:
-												indices.append(current_point['index'])
-												indices.append(plus_xz['index'])
-												indices.append(plus_z['index'])
-												
-											if not plus_z:
-												indices.append(current_point['index'])
-												indices.append(plus_x['index'])
-												indices.append(plus_xz['index'])
-												
-											if not plus_xz:
-												indices.append(current_point['index'])
-												indices.append(plus_x['index'])
-												indices.append(plus_z['index'])
-						else:
-							if z < height - 1 and x < width - 1:
-								var plus_x = point_group[x + 1][z]
-								var plus_z = point_group[x][z + 1]
-								var plus_xz = point_group[x + 1][z + 1]
-								
-								if plus_x and plus_xz and plus_z:
-									if plus_x and plus_z and plus_xz:
-										indices.append(plus_x['index'])
-										indices.append(plus_xz['index'])
-										indices.append(plus_z['index'])
+		# type is the first block without spaces. 
+		#	ex: terrain:MyTerrainProcessor -> terrain
+		#	my terrain:MyTerrainProcessor -> my
+		var type = re.sub(parts[0], '', true)
+		var render_type
 		
-		arr[Mesh.ARRAY_VERTEX] = verts
-		arr[Mesh.ARRAY_TEX_UV] = uvs
-	#	arr[Mesh.ARRAY_NORMAL] = normals
-		arr[Mesh.ARRAY_INDEX] = indices
+		if len(parts) > 2:
+			if parts[2]:
+				render_type = parts[2]
+				
+		if not render_type:
+			if not type in RenderManager.renderers:
+				print("No render registered for type %s" % type)
+				continue
+				
+			for r in RenderManager.renderers[type]:
+				render_type = r
+				break
+				
+		var render = RenderManager.renderers[type][render_type]
 		
-		var mesh_instance = MeshInstance.new()
-		var mesh: Mesh = Mesh.new()
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-		
-		var surfaceTool = SurfaceTool.new()
-	#	surfaceTool.add_smooth_group(true)
-		surfaceTool.append_from(mesh, 0, Transform.IDENTITY)
-		surfaceTool.generate_normals()
-	#	surfaceTool.generate_tangents()
-		mesh = surfaceTool.commit()
-		
-		var mat = SpatialMaterial.new()
-		if data['name'].begins_with('terrain'):
-			mat.albedo_color = Color(.5, .25, 0)
-			
-		if data['name'].begins_with('water'):
-			mat.albedo_color = Color(.5, .5, 1, .5)
-			mat.flags_transparent = true
-		
-		mesh_instance.mesh = mesh
-		mesh_instance.material_override = mat
+		var mesh_instance = render.render(data)
 
 		selected_node.add_child(mesh_instance)
-		mesh_instance.owner = get_editor_interface().get_edited_scene_root()											
+		mesh_instance.owner = get_editor_interface().get_edited_scene_root()
+		
+		measurement['end'] = OS.get_ticks_msec()
+		measurement["duration"] = measurement['end'] - measurement['start']
+		
+		measurements.append(measurement)
+		
+	var total_time = OS.get_ticks_msec() - start
+	print()
+	print('render time: ', total_time)
+	
+	for i in measurements:
+		print(i['name'], ", duration: ", i['duration'], ', percent: ', float(i['duration']) / total_time * 100.0)
 	
 func register_processors():
 	ProcessorManager = get_tree().root.get_node("ProcessorManager")
@@ -311,3 +256,16 @@ func register_processors():
 	
 	for p in processors:
 		ProcessorManager.processors[p.processor_type][p.processor_name] = p
+
+	
+func register_renderers():
+	RenderManager = get_tree().root.get_node("RenderManager")
+	
+	# Register processors
+	var renderers = [
+		preload("res://addons/angelqba.image_to_scene/renderers/simple_terrain_render.gd").new(),
+		preload("res://addons/angelqba.image_to_scene/renderers/simple_water_render.gd").new()
+	]
+	
+	for r in renderers:
+		RenderManager.renderers[r.render_type][r.render_name] = r
