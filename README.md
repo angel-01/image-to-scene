@@ -45,3 +45,8 @@ func register_builders():
 	for r in builders:
 		BuilderManager.builders[r.builder_type][r.builder_name] = r
 ```
+
+## TO DO:
+
+- Integration with [HungryProton/scatter](https://github.com/HungryProton/scatter) addon for object placement.
+- Material and other configurations in preview panel.
