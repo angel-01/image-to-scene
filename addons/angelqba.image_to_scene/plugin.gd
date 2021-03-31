@@ -3,9 +3,8 @@ extends EditorPlugin
 
 # TODO:
 # SUBIR A GIT:
-#	-DOCUMENTAR
-#	-SUBIR A GIT
 #	-PUBLICAR
+#		-GODOT
 #		-TWITTER
 #		-REDDIT
 #		-ITCH.IO
