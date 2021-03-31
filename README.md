@@ -1,5 +1,7 @@
 # Simple and extensible godot addon to convert TIFF image layers to MeshInstances
 
+![main image](images/image01.png)
+
 ## Image Format
 
 Images must be in TIFF format, uncompressed and all layers must have the same dimensions.
