@@ -1,5 +1,7 @@
 extends Node
 
+var processor_name
+var processor_type
 var width
 var height
 var samples_per_pixel
@@ -7,9 +9,20 @@ var point_group = []
 var layer
 var selected_node
 
-func start(current_layer):
-	pass
+# -layers: Information parsed from TIFF.
+#	It includes all layers
+# -current_layer: current layer information (from TIFF image)
+# -current_result: current result. Used for modifying previous processed layers
+# -selected_node: Current selected ImageToScene node
 
+# RETURNS:
+#		{
+#			'name': Layer name
+#			'width': Image width 
+#			'height': Image Height
+#			'samples_per_pixel': 3 if image is RGB, 4 if image is RGBA
+#			'point_groups': list of grids with a {vector: Vector3, index: int} object points. Usually only one group is generated, but supports more for generating "islands" of points. Includes full transparent points as null values
+#		}
 func process(layers, current_layer, current_result, selected_node):
 	self.selected_node = selected_node
 	width = current_layer['ImageWidth']
@@ -30,6 +43,7 @@ func process(layers, current_layer, current_result, selected_node):
 		arr.resize(height)
 		point_group.append(arr)
 		
+#	current_layer['data'] is a 1d array with all the points. index will hold the current position
 	var index = 0
 	var not_null_index = 0
 	for z in range(0, height):
@@ -45,10 +59,12 @@ func process(layers, current_layer, current_result, selected_node):
 			if samples_per_pixel == 4:
 				var alpha = current_layer['data'][index + 3]
 				
+				# if is full transparent, sets a null value at these coordinates 
 				if not alpha:
 					point_group[x][z] = null
 					index += samples_per_pixel
 					continue
+				# else, y value is reduced by how much transparent it is
 				else:
 					var ratio = alpha / 255.0
 					point_y *= ratio
@@ -59,7 +75,7 @@ func process(layers, current_layer, current_result, selected_node):
 					point_y, 
 					point_z
 				),
-				'index': not_null_index
+				'index': not_null_index # used latter in mesh contruction
 			}
 			
 			not_null_index += 1
@@ -70,10 +86,13 @@ func process(layers, current_layer, current_result, selected_node):
 	return layer
 
 func get_x(x, r, g, b):
+	# scale and center in x axis
 	return x * selected_node.total_scale - width / 2 * selected_node.total_scale
 
 func get_y(r, g, b):
-	return (r + g + b) * selected_node.heigth_scale * selected_node.total_scale
+	# scale and set y value by adding color's components
+	return (r + g + b) * selected_node.heigth_scale * selected_node.total_scale 
 
 func get_z(z, r, g, b):
+	# scale and center in z axis
 	return z * selected_node.total_scale - height / 2 * selected_node.total_scale

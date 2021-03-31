@@ -3,7 +3,6 @@ extends EditorPlugin
 
 # TODO:
 # SUBIR A GIT:
-#	-COMENTAR
 #	-DOCUMENTAR
 #	-SUBIR A GIT
 #	-PUBLICAR
@@ -29,7 +28,7 @@ var _image_to_scene_type = preload("res://addons/angelqba.image_to_scene/image_t
 # Where processors are registered
 var ProcessorManager = null
 # Wehere renrers are registered
-var RenderManager = null
+var BuilderManager = null
 
 func _enter_tree():
 	# Initialization of the plugin goes here.
@@ -50,11 +49,11 @@ func _enter_tree():
 
 	ProcessorManager = preload("res://addons/angelqba.image_to_scene/processor_manager.gd").new()
 	ProcessorManager.connect('ready', self, 'register_processors')
-	RenderManager = preload("res://addons/angelqba.image_to_scene/render_manager.gd").new()
-	RenderManager.connect('ready', self, 'register_renderers')
+	BuilderManager = preload("res://addons/angelqba.image_to_scene/builder_manager.gd").new()
+	BuilderManager.connect('ready', self, 'register_builders')
 	
 	get_tree().root.call_deferred('add_child', ProcessorManager)
-	get_tree().root.call_deferred('add_child', RenderManager)
+	get_tree().root.call_deferred('add_child', BuilderManager)
 	
 func _exit_tree():
 	# Clean-up of the plugin goes here.
@@ -63,7 +62,7 @@ func _exit_tree():
 	_options_view.queue_free()
 	tiff_loader.queue_free()
 	ProcessorManager.queue_free()
-	RenderManager.queue_free()
+	BuilderManager.queue_free()
 
 func _on_selection_changed() -> void:
 	var selected = _editor_selection.get_selected_nodes()
@@ -123,8 +122,7 @@ func update_image_preview():
 # convert color data from tiff image to coords and height values
 func preprocess():
 	
-	# me quede aqui comentando
-	
+	# performance measurements
 	var start = OS.get_ticks_msec()
 	var measurements = []
 	var result = {
@@ -137,6 +135,8 @@ func preprocess():
 			"duration": '',
 			"name": data['PageName']
 		}
+		
+		# gets type of layer and Processor if exists
 		var parts = data['PageName'].split(':')
 		var re = RegEx.new()
 		re.compile(' +')
@@ -155,12 +155,28 @@ func preprocess():
 			if not type in ProcessorManager.processors:
 				print("No processor registered for type %s" % type)
 				continue
-				
+			
+			# gets the first processor of layer type
 			for p in ProcessorManager.processors[type]:
 				processor_type = p
 				break
 				
 		var processor = ProcessorManager.processors[type][processor_type]
+		
+		# -selected_node.image_data_resource.data: Information parsed from TIFF.
+		#	It includes all layers
+		# -data: current layer information (from TIFF image)
+		# -result: current result. Used for modifying previous processed layers
+		# -selected_node: Current selected ImageToScene node
+		
+		# RETURNS:
+#		{
+#			'name': Layer name
+#			'width': Image width 
+#			'height': Image Height
+#			'samples_per_pixel': 3 if image is RGB, 4 if image is RGBA
+#			'point_groups': list of grids with a {vector: Vector3, index: int} object points. Usually only one group is generated, but supports more for generating "islands" of points. Includes full transparent points as null values
+#		}
 		var layer = processor.process(
 			selected_node.image_data_resource.data, 
 			data, 
@@ -186,16 +202,20 @@ func preprocess():
 		
 func update_model():
 	
+	# remove children of selected ImageToScene node
 	for n in selected_node.get_children():
 		selected_node.remove_child(n)
 	
+	# preprocess data
 	var preprocessed_layers = preprocess()
-#
+	
+	# performance measurements
 	var start = OS.get_ticks_msec()
 	var measurements = []
 	var result = {
 		'layers': []
 	}
+	
 	for data in preprocessed_layers['layers']:
 		var measurement = {
 			"start": OS.get_ticks_msec(),
@@ -211,24 +231,25 @@ func update_model():
 		#	ex: terrain:MyTerrainProcessor -> terrain
 		#	my terrain:MyTerrainProcessor -> my
 		var type = re.sub(parts[0], '', true)
-		var render_type
+		var builder_type
 		
 		if len(parts) > 2:
 			if parts[2]:
-				render_type = parts[2]
+				builder_type = parts[2]
 				
-		if not render_type:
-			if not type in RenderManager.renderers:
-				print("No render registered for type %s" % type)
+		if not builder_type:
+			if not type in BuilderManager.builders:
+				print("No builder registered for type %s" % type)
 				continue
 				
-			for r in RenderManager.renderers[type]:
-				render_type = r
+			# gets the first builder of layer type
+			for r in BuilderManager.builders[type]:
+				builder_type = r
 				break
 				
-		var render = RenderManager.renderers[type][render_type]
+		var builder = BuilderManager.builders[type][builder_type]
 		
-		var mesh_instance = render.render(data)
+		var mesh_instance = builder.build(data)
 
 		selected_node.add_child(mesh_instance)
 		mesh_instance.owner = get_editor_interface().get_edited_scene_root()
@@ -240,11 +261,12 @@ func update_model():
 		
 	var total_time = OS.get_ticks_msec() - start
 	print()
-	print('render time: ', total_time)
+	print('builder time: ', total_time)
 	
 	for i in measurements:
 		print(i['name'], ", duration: ", i['duration'], ', percent: ', float(i['duration']) / total_time * 100.0)
 	
+# add processors to the "global" processor registry
 func register_processors():
 	ProcessorManager = get_tree().root.get_node("ProcessorManager")
 	
@@ -257,15 +279,15 @@ func register_processors():
 	for p in processors:
 		ProcessorManager.processors[p.processor_type][p.processor_name] = p
 
-	
-func register_renderers():
-	RenderManager = get_tree().root.get_node("RenderManager")
+# add builder to the "global" builder registry	
+func register_builders():
+	BuilderManager = get_tree().root.get_node("BuilderManager")
 	
 	# Register processors
-	var renderers = [
-		preload("res://addons/angelqba.image_to_scene/renderers/simple_terrain_render.gd").new(),
-		preload("res://addons/angelqba.image_to_scene/renderers/simple_water_render.gd").new()
+	var builders = [
+		preload("res://addons/angelqba.image_to_scene/builders/simple_terrain_builder.gd").new(),
+		preload("res://addons/angelqba.image_to_scene/builders/simple_water_builder.gd").new()
 	]
 	
-	for r in renderers:
-		RenderManager.renderers[r.render_type][r.render_name] = r
+	for r in builders:
+		BuilderManager.builders[r.builder_type][r.builder_name] = r

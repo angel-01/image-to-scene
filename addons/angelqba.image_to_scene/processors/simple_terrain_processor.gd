@@ -1,4 +1,5 @@
 extends "res://addons/angelqba.image_to_scene/processors/processor_interface.gd"
 
-var processor_name = 'SimpleTerrainProcessor'
-var processor_type = 'terrain'
+func _init().():
+	processor_name = 'SimpleTerrainProcessor'
+	processor_type = 'terrain'

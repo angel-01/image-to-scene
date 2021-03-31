@@ -1,10 +1,11 @@
 extends Node
 
+# return Image from TIFF image path
 func load_tiff_image(path):
 	var result = load_tiff(path)
 	return load_tiff_image_from_data(result)
 	
-	
+# Converts TIFF parsed data in godot's Image
 func load_tiff_image_from_data(data):
 	var final_image: Image = null
 	for i in data:
@@ -18,6 +19,7 @@ func load_tiff_image_from_data(data):
 			
 	return final_image
 	
+# Converts only one layer of TIFF parsed data in godot's Image
 func get_image_from_layer_data(layer_data):
 	var image: Image = Image.new()
 	var format
@@ -36,6 +38,7 @@ func get_image_from_layer_data(layer_data):
 	)
 	return image
 
+# returns TIFF image data parsed
 func load_tiff(path):
 	var f = File.new()
 	f.open(path, File.READ)
@@ -56,6 +59,7 @@ func load_tiff(path):
 		
 	return final_result
 
+# main parser of TIFF file
 func read_idf(f: File, offset: int):
 #	print()
 #	print()

@@ -1,11 +1,13 @@
 extends "res://addons/angelqba.image_to_scene/processors/processor_interface.gd"
 
-var processor_name = 'SimpleWaterProcessor'
-var processor_type = 'water'
 var previous_layer
 var heigth_scale
 var total_scale
 var mult
+
+func _init().():
+	processor_name = 'SimpleWaterProcessor'
+	processor_type = 'water'
 
 func process(layers, current_layer, current_result, selected_node):
 	heigth_scale = selected_node.heigth_scale
@@ -13,8 +15,10 @@ func process(layers, current_layer, current_result, selected_node):
 	mult = heigth_scale * total_scale
 	previous_layer = current_result['layers'].back()
 	
+	# do parent process
 	var result = .process(layers, current_layer, current_result, selected_node)
 	
+	# modify previous layer, lowering it
 	for z in range(0, height):
 		for x in range(0, width):
 			var no_previous_point = false
@@ -32,5 +36,6 @@ func process(layers, current_layer, current_result, selected_node):
 	
 	return result
 
+# override parent function
 func get_y(r, g, b):
 	return 255 * 3 * mult - (r + g + b) * mult
