@@ -1,19 +1,6 @@
 tool
 extends EditorPlugin
 
-# TODO:
-# SUBIR A GIT:
-#	-PUBLICAR
-#		-GODOT
-#		-TWITTER
-#		-REDDIT
-#		-ITCH.IO
-
-# -adicionar zonas de objetos. integrar con addon "scatter"
-# TODO: permitir varias "islas" independientes???
-# optimizar? si una capa no fue modificada en la imagen, no volver a generarla?
-
-
 var tiff_loader
 
 # options panel. Shown when an ImageToScene node is selected
