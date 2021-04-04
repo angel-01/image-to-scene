@@ -44,10 +44,12 @@ margin_right = 142.0
 margin_bottom = 568.0
 size_flags_vertical = 3
 max_text_lines = 5
-auto_height = true
 fixed_column_width = 132
 icon_mode = 0
 fixed_icon_size = Vector2( 132, 132 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
 
 [node name="UpdateModel" type="Button" parent="VBoxContainer"]
 margin_top = 572.0

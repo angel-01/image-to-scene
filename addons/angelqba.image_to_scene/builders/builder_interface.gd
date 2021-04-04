@@ -1,3 +1,4 @@
+tool
 extends Node
 
 # Name of the builder. Can be specified in layer name. TYPE:PROCESSOR:BUILDER -> terrain:MyProcessor:MyBuilder

@@ -1,20 +1,6 @@
 tool
 extends EditorPlugin
 
-# TODO:
-# SUBIR A GIT:
-#	-DOCUMENTAR
-#	-SUBIR A GIT
-#	-PUBLICAR
-#		-TWITTER
-#		-REDDIT
-#		-ITCH.IO
-
-# -adicionar zonas de objetos. integrar con addon "scatter"
-# TODO: permitir varias "islas" independientes???
-# optimizar? si una capa no fue modificada en la imagen, no volver a generarla?
-
-
 var tiff_loader
 
 # options panel. Shown when an ImageToScene node is selected
@@ -39,7 +25,7 @@ func _enter_tree():
 	add_custom_type("ImageToScene", "Spatial", preload("image_to_scene.gd"), preload("icon.png"))
 	
 	var base_control = get_editor_interface().get_base_control()
-	_options_view.base_control = base_control
+#	_options_view.base_control = base_control
 	_options_view.connect('update_image_preview', self, 'update_image_preview')
 	_options_view.connect('update_model', self, 'update_model')
 
@@ -263,8 +249,9 @@ func update_model():
 	print()
 	print('builder time: ', total_time)
 	
-	for i in measurements:
-		print(i['name'], ", duration: ", i['duration'], ', percent: ', float(i['duration']) / total_time * 100.0)
+	if total_time:
+		for i in measurements:
+			print(i['name'], ", duration: ", i['duration'], ', percent: ', float(i['duration']) / total_time * 100.0)
 	
 # add processors to the "global" processor registry
 func register_processors():
