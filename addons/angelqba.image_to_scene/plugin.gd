@@ -5,6 +5,8 @@ var tiff_loader
 
 # options panel. Shown when an ImageToScene node is selected
 var _options_view: Node
+# layer inspector. Shown when an ImageToScene node is selected, ana a layer is selected in options panel
+var layer_inspector: Node
 # editor's current selection
 var _editor_selection
 # stores current selected ImageToScene node
@@ -20,14 +22,16 @@ func _enter_tree():
 	# Initialization of the plugin goes here.
 	
 	_options_view  = preload("res://addons/angelqba.image_to_scene/views/_options_view.tscn").instance()
+	layer_inspector  = preload("res://addons/angelqba.image_to_scene/views/LayerInspector.tscn").instance()
 	tiff_loader = preload("res://addons/angelqba.image_to_scene/tools/tiff_loader.gd").new()
 	# Add the new type with a name, a parent type, a script and an icon.
 	add_custom_type("ImageToScene", "Spatial", preload("image_to_scene.gd"), preload("icon.png"))
 	
 	var base_control = get_editor_interface().get_base_control()
-	_options_view.base_control = base_control
+#	_options_view.base_control = base_control
 	_options_view.connect('update_image_preview', self, 'update_image_preview')
 	_options_view.connect('update_model', self, 'update_model')
+	_options_view.connect('layer_selected', self, 'layer_selected')
 
 	_editor_selection = get_editor_interface().get_selection()
 	_editor_selection.connect("selection_changed", self, "_on_selection_changed")
@@ -46,6 +50,7 @@ func _exit_tree():
 	# Always remember to remove it from the engine when deactivated.
 	remove_custom_type("ImageToScene")
 	_options_view.queue_free()
+	layer_inspector.queue_free()
 	tiff_loader.queue_free()
 	ProcessorManager.queue_free()
 	BuilderManager.queue_free()
@@ -77,6 +82,8 @@ func _show_options_panel():
 func _hide_options_panel():
 	if _options_view.get_parent():
 		remove_control_from_container(CONTAINER_SPATIAL_EDITOR_SIDE_LEFT, _options_view)
+#		remove_control_from_container(EditorPlugin.CONTAINER_PROPERTY_EDITOR_BOTTOM, layer_inspector)
+		remove_control_from_bottom_panel(layer_inspector)
 
 # generate images for options panel
 func update_image_preview():
@@ -123,31 +130,11 @@ func preprocess():
 		}
 		
 		# gets type of layer and Processor if exists
-		var parts = data['PageName'].split(':')
-		var re = RegEx.new()
-		re.compile(' +')
-		
-		# type is the first block without spaces. 
-		#	ex: terrain:MyTerrainProcessor -> terrain
-		#	my terrain:MyTerrainProcessor -> my
-		var type = re.sub(parts[0], '', true)
-		var processor_type
-		
-		if len(parts) > 1:
-			if parts[1]:
-				processor_type = parts[1]
+		var parts = parse_layer_name(data['PageName'])
+		var type = parts['type']
+		var processor_type = parts['processor_type']
 				
-		if not processor_type:
-			if not type in ProcessorManager.processors:
-				print("No processor registered for type %s" % type)
-				continue
-			
-			# gets the first processor of layer type
-			for p in ProcessorManager.processors[type]:
-				processor_type = p
-				break
-				
-		var processor = ProcessorManager.processors[type][processor_type]
+		var processor = get_processor(type, processor_type)
 		
 		# -selected_node.image_data_resource.data: Information parsed from TIFF.
 		#	It includes all layers
@@ -209,31 +196,12 @@ func update_model():
 			"duration": '',
 			"name": data['name']
 		}
-		var parts = data['name'].split(':')
-		var re = RegEx.new()
-		re.compile(' +')
 		
-		# type is the first block without spaces. 
-		#	ex: terrain:MyTerrainProcessor -> terrain
-		#	my terrain:MyTerrainProcessor -> my
-		var type = re.sub(parts[0], '', true)
-		var builder_type
+		var parts = parse_layer_name(data['PageName'])
+		var type = parts['type']
+		var builder_type = parts['builder_type']
 		
-		if len(parts) > 2:
-			if parts[2]:
-				builder_type = parts[2]
-				
-		if not builder_type:
-			if not type in BuilderManager.builders:
-				print("No builder registered for type %s" % type)
-				continue
-				
-			# gets the first builder of layer type
-			for r in BuilderManager.builders[type]:
-				builder_type = r
-				break
-				
-		var builder = BuilderManager.builders[type][builder_type]
+		var builder = get_builder(type, builder_type)
 		
 		var mesh_instance = builder.build(data)
 
@@ -249,8 +217,9 @@ func update_model():
 	print()
 	print('builder time: ', total_time)
 	
-	for i in measurements:
-		print(i['name'], ", duration: ", i['duration'], ', percent: ', float(i['duration']) / total_time * 100.0)
+	if total_time:
+		for i in measurements:
+			print(i['name'], ", duration: ", i['duration'], ', percent: ', float(i['duration']) / total_time * 100.0)
 	
 # add processors to the "global" processor registry
 func register_processors():
@@ -277,3 +246,87 @@ func register_builders():
 	
 	for r in builders:
 		BuilderManager.builders[r.builder_type][r.builder_name] = r
+
+func layer_selected(index):
+	print('index: ', index)
+	print(selected_node.image_data_resource.data[index]['PageName'])
+	if index == -1:
+#		remove_control_from_container(EditorPlugin.CONTAINER_PROPERTY_EDITOR_BOTTOM, layer_inspector)
+		remove_control_from_bottom_panel(layer_inspector)
+	else:
+		if not layer_inspector.get_parent():
+			add_control_to_bottom_panel(layer_inspector, 'Layer Inspector')
+			
+	if layer_inspector.get_parent():
+		var parts = parse_layer_name(selected_node.image_data_resource.data[index]['PageName'])
+		var type = parts['type']
+		var builder_type = parts['builder_type']
+		
+		print('parts: ', parts)
+		
+		var builder = get_builder(type, builder_type)
+		
+		print('builder: ', builder)
+		print('layer_inspector: ', layer_inspector)
+		
+		if builder:
+			print('configuration_fields: ', builder.configuration_fields)
+			for configuration_field in builder.configuration_fields:
+				layer_inspector.add_field(configuration_field)
+					
+#		add_control_to_container(EditorPlugin.CONTAINER_PROPERTY_EDITOR_BOTTOM, layer_inspector)
+
+func parse_layer_name(layer_name):
+	# gets type of layer and Processor if exists
+	var parts = layer_name.split(':')
+	var re = RegEx.new()
+	re.compile(' +')
+	
+	# type is the first block without spaces. 
+	#	ex: terrain:MyTerrainProcessor -> terrain
+	#	my terrain:MyTerrainProcessor -> my
+	var type = re.sub(parts[0], '', true)
+	
+	var processor_type = null
+	
+	if len(parts) > 1:
+		if parts[1]:
+			processor_type = parts[1]
+	
+	var builder_type = null
+	
+	if len(parts) > 2:
+		if parts[2]:
+			builder_type = parts[2]
+			
+	return {
+		'type': type,
+		'processor_type': processor_type,
+		'builder_type': builder_type,
+	}
+
+func get_builder(type, builder_type):
+	if not builder_type:
+		if not type in BuilderManager.builders:
+			print("No builder registered for type %s" % type)
+			return null
+			
+		# gets the first builder of layer type
+		for r in BuilderManager.builders[type]:
+			builder_type = r
+			break
+			
+	return BuilderManager.builders[type][builder_type]
+	
+func get_processor(type, processor_type):
+	if not processor_type:
+		if not type in ProcessorManager.processors:
+			print("No processor registered for type %s" % type)
+			return null
+		
+		# gets the first processor of layer type
+		for p in ProcessorManager.processors[type]:
+			processor_type = p
+			break
+			
+	return ProcessorManager.processors[type][processor_type]

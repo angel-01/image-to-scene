@@ -6,6 +6,9 @@ var builder_name
 # Type of layer. Can be specified in layer name. TYPE:PROCESSOR:BUILDER -> terrain:MyProcessor:MyBuilder
 var builder_type
 
+# array of configuration blocks for layer configuration
+var configuration_fields = []
+
 # generate a MeshInstance from processed data
 # data: 
 #{
