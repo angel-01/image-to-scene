@@ -248,6 +248,7 @@ func register_builders():
 		BuilderManager.builders[r.builder_type][r.builder_name] = r
 
 func layer_selected(index):
+	return
 	print('index: ', index)
 	print(selected_node.image_data_resource.data[index]['PageName'])
 	if index == -1:
