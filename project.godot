@@ -25,7 +25,7 @@ config/icon="res://icon.png"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "angelqba.image_to_scene", "godot-plugin-refresher", "scatter", "test", "zylann.editor_debugger" )
+enabled=PoolStringArray( "angelqba.I2S.simple_object", "angelqba.image_to_scene", "godot-plugin-refresher", "scatter", "zylann.editor_debugger" )
 
 [rendering]
 
