@@ -57,4 +57,5 @@ margin_right = 142.0
 margin_bottom = 592.0
 text = "Update Model"
 [connection signal="pressed" from="VBoxContainer/Update" to="." method="_on_Update_pressed"]
+[connection signal="item_selected" from="VBoxContainer/ItemList" to="." method="_on_ItemList_item_selected"]
 [connection signal="pressed" from="VBoxContainer/UpdateModel" to="." method="_on_UpdateModel_pressed"]

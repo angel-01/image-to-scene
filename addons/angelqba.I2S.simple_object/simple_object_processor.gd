@@ -6,26 +6,17 @@ func _init().():
 
 func process(layers, current_layer, current_result, selected_node):
 	var result = .process(layers, current_layer, current_result, selected_node)
-	
-	
 	var grid = result['point_groups'][0]
-	
 	var visited = {}
-#	var to_process = [grid[0][0]]
 	var groups = []
-#	print(to_process)
-	
-#	while to_process:
-#		var current = to_process.pop_front()
 		
 	for x in result['width']:
 		for z in result['height']:
 			var current_position = Vector2(x, z)
-#			print('current position: ', current_position)
 			if current_position in visited:
 				continue
 			
-			# escaneo zonas vacias
+			# scan empty zones
 			if not grid[x][z]:
 				var to_scan = [current_position]
 				var group = {
@@ -33,13 +24,12 @@ func process(layers, current_layer, current_result, selected_node):
 					'elements': []
 				}
 				while to_scan:
-#					print('to_scan: ', to_scan)
 					var current = to_scan.pop_front()
 					
 					if current in visited:
 						continue
 					
-					# si la posicion actual NO es vacia, no me interesa
+					# continue if the current position is NOT empty
 					if grid[current.x][current.y]:
 						continue
 						
@@ -47,7 +37,10 @@ func process(layers, current_layer, current_result, selected_node):
 						visited[current] = null
 						
 					var value = {
-						"vector": current,
+						"vector": Vector2(
+							current.x * selected_node.total_scale - width / 2 * selected_node.total_scale, 
+							current.y * selected_node.total_scale - height / 2 * selected_node.total_scale
+						),
 						"is_border": false
 					}
 						
@@ -72,6 +65,7 @@ func process(layers, current_layer, current_result, selected_node):
 					
 				groups.append(group)
 				
+			# scann filled zones
 			else:
 				var to_scan = [current_position]
 				var group = {
@@ -80,24 +74,42 @@ func process(layers, current_layer, current_result, selected_node):
 				}
 				
 				while to_scan:
-#					print('to_scan: ', to_scan)
 					var current = to_scan.pop_front()
 					
 					if current in visited:
 						continue
 					
-					# si la posicion actual ESTA vacia, no me interesa
+					# continue if the current position IS empty
 					if not grid[current.x][current.y]:
 						continue
 						
 					if not current in visited:
 						visited[current] = null
 						
-					var value = {
-						"vector": current,
-						"is_border": false
-					}
+					#find the higest value in previous layers
+					var new_height = null
+					for layer in current_result['layers']:
 						
+						for g in layer['point_groups']:
+							if g is Array and current.x < len(g) and g[current.x] is Array and current.y < len(g[current.x]) and g[current.x][current.y] and g[current.x][current.y]['vector'] is Vector3:
+								if new_height == null:
+									new_height = g[current.x][current.y]['vector'].y
+								else:
+									new_height = max(new_height, g[current.x][current.y]['vector'].y)
+						
+						if new_height == null:
+							new_height = 0
+					
+					var value = {
+						"vector": Vector3(
+							current.x * selected_node.total_scale - width / 2 * selected_node.total_scale, 
+							new_height,
+							current.y * selected_node.total_scale - height / 2 * selected_node.total_scale
+						),
+						"is_border": false,
+						"probability": grid[current.x][current.y]['vector'].y
+					}
+					
 					if current.x == 0 or current.x == width - 1 or current.y == 0 or current.y == height - 1:
 						value['is_border'] = true
 					elif not grid[current.x-1][current.y] or not grid[current.x+1][current.y] or not grid[current.x][current.y-1] or not grid[current.x][current.y+1]:
@@ -119,7 +131,10 @@ func process(layers, current_layer, current_result, selected_node):
 					
 				groups.append(group)
 				
-#	print("groups: ", groups)
-	
 	result['point_groups'] = groups
 	return result
+
+# replaces the parent method. it will be multiplied by alpha chanel and it will
+# be used as a probability of object creation
+func get_y(r, g, b):
+	return 1

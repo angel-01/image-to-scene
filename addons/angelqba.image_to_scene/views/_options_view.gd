@@ -13,14 +13,14 @@ var _preview_provider : EditorResourcePreview = null
 
 signal update_image_preview
 signal update_model
+signal layer_selected
 
 
 func _on_ItemList_item_selected(index):
-	emit_signal("pattern_selected", index)
+	emit_signal("layer_selected", index)
 
 func _on_Update_pressed():
 	emit_signal("update_image_preview")
-
 
 func _on_UpdateModel_pressed():
 	emit_signal('update_model')
