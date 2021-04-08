@@ -90,11 +90,13 @@ func update_image_preview():
 	if selected_node and selected_node.image_path:
 		# load data from tiff
 		var data = tiff_loader.load_tiff(selected_node.image_path)
-		var data_resource = ImageDataReource.new()
-		data_resource.data = data
+#		var data_resource = ImageDataReource.new()
+		selected_node.image_data_resource.data = data
 		# save tiff data in a resource 
-		ResourceSaver.save(selected_node.image_data_resource.resource_path, data_resource)
-		selected_node.image_data_resource = data_resource
+		ResourceSaver.save(selected_node.image_data_resource.resource_path, selected_node.image_data_resource)
+#		selected_node.image_data_resource = data_resource
+		print('resource_path: ', selected_node.image_data_resource.resource_path)
+		print('image_data_resource: ', selected_node.image_data_resource)
 		# generate image from tiff data
 		var image: Image = tiff_loader.load_tiff_image_from_data(data)
 
@@ -197,16 +199,20 @@ func update_model():
 			"name": data['name']
 		}
 		
-		var parts = parse_layer_name(data['PageName'])
+		var parts = parse_layer_name(data['name'])
 		var type = parts['type']
 		var builder_type = parts['builder_type']
 		
 		var builder = get_builder(type, builder_type)
 		
-		var mesh_instance = builder.build(data)
-
-		selected_node.add_child(mesh_instance)
-		mesh_instance.owner = get_editor_interface().get_edited_scene_root()
+		var mesh_instances = builder.build(data, selected_node)
+		
+		if not mesh_instances is Array:
+			mesh_instances = [mesh_instances]
+		
+		for mesh_instance in mesh_instances:
+			selected_node.add_child(mesh_instance)
+			mesh_instance.owner = get_editor_interface().get_edited_scene_root()
 		
 		measurement['end'] = OS.get_ticks_msec()
 		measurement["duration"] = measurement['end'] - measurement['start']
@@ -248,7 +254,6 @@ func register_builders():
 		BuilderManager.builders[r.builder_type][r.builder_name] = r
 
 func layer_selected(index):
-	return
 	print('index: ', index)
 	print(selected_node.image_data_resource.data[index]['PageName'])
 	if index == -1:
@@ -259,6 +264,8 @@ func layer_selected(index):
 			add_control_to_bottom_panel(layer_inspector, 'Layer Inspector')
 			
 	if layer_inspector.get_parent():
+		layer_inspector.clear()
+		layer_inspector.selected_node = selected_node
 		var parts = parse_layer_name(selected_node.image_data_resource.data[index]['PageName'])
 		var type = parts['type']
 		var builder_type = parts['builder_type']

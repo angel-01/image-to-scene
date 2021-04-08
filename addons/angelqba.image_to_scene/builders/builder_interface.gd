@@ -17,7 +17,7 @@ var configuration_fields = []
 #	'height': image height
 #	'point_groups': array of grids of Vector3 points. Full transparent pixels in image are translated to null valuen
 #}
-func build(data):
+func build(data, selected_node):
 	var arr = []
 		
 	arr.resize(Mesh.ARRAY_MAX)
@@ -107,8 +107,8 @@ func build(data):
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	
 	var surfaceTool = SurfaceTool.new()
-#	surfaceTool.add_smooth_group(true)  # this don't work
 	surfaceTool.append_from(mesh, 0, Transform.IDENTITY)
+	surfaceTool.add_smooth_group(true)  # this don't work
 	surfaceTool.generate_normals()
 	mesh = surfaceTool.commit()
 	

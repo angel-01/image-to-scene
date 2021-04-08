@@ -1,0 +1,40 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://addons/angelqba.image_to_scene/views/inspector_fields/FileField.gd" type="Script" id=1]
+
+[node name="TextField" type="MarginContainer"]
+size_flags_horizontal = 3
+custom_constants/margin_right = 10
+custom_constants/margin_top = 10
+custom_constants/margin_left = 10
+custom_constants/margin_bottom = 10
+script = ExtResource( 1 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+margin_left = 10.0
+margin_top = 10.0
+margin_right = 57.0
+margin_bottom = 66.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Title" type="Label" parent="VBoxContainer"]
+margin_right = 47.0
+margin_bottom = 14.0
+text = "LABEL"
+
+[node name="File" type="Label" parent="VBoxContainer"]
+margin_top = 18.0
+margin_right = 47.0
+margin_bottom = 32.0
+
+[node name="Button" type="Button" parent="VBoxContainer"]
+margin_top = 36.0
+margin_right = 47.0
+margin_bottom = 56.0
+text = "Open"
+[connection signal="pressed" from="VBoxContainer/Button" to="." method="_on_Button_pressed"]
