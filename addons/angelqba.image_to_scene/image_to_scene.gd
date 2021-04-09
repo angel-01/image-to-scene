@@ -6,7 +6,7 @@ export(String, FILE, "*.tiff") var image_path setget set_image_path
 # custom resource to store tiff parsed information
 export(Resource) var image_data_resource = ImageDataReource.new()
 # scale applied to height values
-export(float) var heigth_scale = 0.5
+export(float) var heigth_scale = 0.1
 # scale applied to the resulting model
 export(float) var total_scale = 0.1
 
