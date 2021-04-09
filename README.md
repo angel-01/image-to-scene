@@ -9,10 +9,10 @@ Clone this repo and copy "addons" folder in your project.
 Activate this plugin in Project Settings -> Plugins
 
 Now you can create a ImageToScene node. 
-![Adding a ImageToScene node](images/image02.png)
+![Adding a ImageToScene node](images/image02.jpg)
 
 When you select it, you can specify a image in TIFF format to be loaded.
-![Load an image](images/image03.png)
+![Load an image](images/image03.jpg)
 
 You can find a sample image at res://addons/angelqba.image_to_scene/demo/image1.tiff
 
@@ -27,21 +27,21 @@ In the demo folder, are sample images to test.
 ### Configuring
 
 Now you can see in the left panel, an image preview, a preview of each layer. 
-![Configuration panel](images/image04.png)
+![Configuration panel](images/image04.jpg)
 
 Push the "Update Model" at the bottom. I recomend using 250x250 images to see how long does it take to generate the mesh.
-![Updating model](images/image05.png)
+![Updating model](images/image05.jpg)
 
 ### Layer Configuration
 
 Some layer can be configured. If you activated the angelqba.I2S.simple_object addon, you can configure layers of type "object". Select a layer of type object, and a "Layer Inspector" panel will become available at the bottom.
-![Layer Inspector](images/image06.png)
+![Layer Inspector](images/image06.jpg)
 
 In this case, you can set the Object (a scene file with a MeshInstance), the probability and the scale.
-![Oppened Layer Inspector](images/image07.png)
+![Oppened Layer Inspector](images/image07.jpg)
 
 The final result.
-![Oppened Layer Inspector](images/image08.png)
+![Oppened Layer Inspector](images/image08.jpg)
 
 
 ## Extendig it
