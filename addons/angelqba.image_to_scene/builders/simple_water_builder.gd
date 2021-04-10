@@ -15,7 +15,7 @@ func _init().():
 func build(data, selected_node):
 	var mesh_instance = .build(data, selected_node)
 	
-	if "material-SimpleWaterBuilder" in selected_node.image_data_resource.configuration_values:
+	if data['name'] + '-' + "material-SimpleWaterBuilder" in selected_node.image_data_resource.configuration_values:
 		var material_path = selected_node.image_data_resource.configuration_values["material-SimpleWaterBuilder"]
 		if material_path:
 			var mat = load(material_path)

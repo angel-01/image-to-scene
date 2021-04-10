@@ -280,7 +280,9 @@ func layer_selected(index):
 		if builder:
 			print('configuration_fields: ', builder.configuration_fields)
 			for configuration_field in builder.configuration_fields:
-				layer_inspector.add_field(configuration_field)
+				var new_configuration_field = configuration_field.duplicate()
+				new_configuration_field['name'] = selected_node.image_data_resource.data[index]['PageName'] + '-' + configuration_field['name']
+				layer_inspector.add_field(new_configuration_field)
 					
 #		add_control_to_container(EditorPlugin.CONTAINER_PROPERTY_EDITOR_BOTTOM, layer_inspector)
 
@@ -288,7 +290,7 @@ func parse_layer_name(layer_name):
 	# gets type of layer and Processor if exists
 	var parts = layer_name.split(':')
 	var re = RegEx.new()
-	re.compile(' +')
+	re.compile(' +.*')
 	
 	# type is the first block without spaces. 
 	#	ex: terrain:MyTerrainProcessor -> terrain

@@ -23,24 +23,23 @@ func _init().():
 
 # generate the multimeshinstances
 func build(data, selected_node):
-	
 	var result = []
 	
 	# get configuration values
 	var object = null
-	if 'object-SimpleObjectBuilder' in selected_node.image_data_resource.configuration_values:
-		object = load(selected_node.image_data_resource.configuration_values['object-SimpleObjectBuilder'])
+	if data['name'] + '-' + 'object-SimpleObjectBuilder' in selected_node.image_data_resource.configuration_values:
+		object = load(selected_node.image_data_resource.configuration_values[data['name'] + '-' + 'object-SimpleObjectBuilder'])
 		
 	if not object:
 		return MeshInstance.new()
 	
 	var probability = 50
-	if 'probability-SimpleObjectBuilder' in selected_node.image_data_resource.configuration_values:
-		probability = selected_node.image_data_resource.configuration_values['probability-SimpleObjectBuilder']
+	if data['name'] + '-' + 'probability-SimpleObjectBuilder' in selected_node.image_data_resource.configuration_values:
+		probability = selected_node.image_data_resource.configuration_values[data['name'] + '-' + 'probability-SimpleObjectBuilder']
 	
 	var scale = 1
-	if 'scale-SimpleObjectBuilder' in selected_node.image_data_resource.configuration_values:
-		scale = selected_node.image_data_resource.configuration_values['scale-SimpleObjectBuilder']
+	if data['name'] + '-' + 'scale-SimpleObjectBuilder' in selected_node.image_data_resource.configuration_values:
+		scale = selected_node.image_data_resource.configuration_values[data['name'] + '-' + 'scale-SimpleObjectBuilder']
 	
 	var layers_with_data = []
 	for i in data['point_groups']:
@@ -51,19 +50,28 @@ func build(data, selected_node):
 	for layer_data in layers_with_data:
 		var multimesh = MultiMesh.new()
 		var instance = object.instance()
-		var mesh = instance
+		var mesh = null
 		# search for a mesh instance in the referenced scene
-		if not mesh is MeshInstance:
-			for i in instance.get_children():
-				if i is MeshInstance:
-					mesh = i.mesh
-					instance = i
-					break
+		var to_check = [instance]
+		while to_check:
+			instance = to_check.pop_front()
+			if not instance is MeshInstance:
+				for i in instance.get_children():
+					to_check.append(i)
+					if i is MeshInstance:
+						mesh = i.mesh
+						instance = i
+						to_check = null
+						break
+				
 					
 		multimesh.mesh = mesh
 		# will contain the elements to add to the multimesh
 		var to_add = []
 		for element in layer_data['elements']:
+			if element['is_border']:
+				continue
+				
 			var randval = randf()
 			# add it using the probability configured
 			if randval <= probability / 100.0 * element['probability']:
@@ -88,7 +96,8 @@ func build(data, selected_node):
 		
 		var multimeshinstance = MultiMeshInstance.new()
 		multimeshinstance.multimesh = multimesh
-		multimeshinstance.material_override = instance.get_surface_material(0)
+		if instance is MeshInstance:
+			multimeshinstance.material_override = instance.get_surface_material(0)
 
 		result.append(multimeshinstance)
 	
