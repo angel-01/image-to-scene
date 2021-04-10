@@ -97,30 +97,35 @@ func build(data, selected_node):
 									indices.append(plus_xz['index'])
 									indices.append(plus_z['index'])
 	
-	arr[Mesh.ARRAY_VERTEX] = verts
-	arr[Mesh.ARRAY_TEX_UV] = uvs
-#	arr[Mesh.ARRAY_NORMAL] = normals
-	arr[Mesh.ARRAY_INDEX] = indices
 	
+	# with surface tool
+	var st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.add_smooth_group(true)
+	for i in indices:
+		st.add_uv(uvs[i])
+		st.add_vertex(verts[i])
+
+	st.generate_normals()
 	var mesh_instance = MeshInstance.new()
-	var mesh: Mesh = Mesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-	
-	var surfaceTool = SurfaceTool.new()
-	surfaceTool.append_from(mesh, 0, Transform.IDENTITY)
-	surfaceTool.add_smooth_group(true)  # this don't work
-	surfaceTool.generate_normals()
-	mesh = surfaceTool.commit()
-	
-	var mat = SpatialMaterial.new()
-	if data['name'].begins_with('terrain'):
-		mat.albedo_color = Color(.5, .25, 0)
-		
-	if data['name'].begins_with('water'):
-		mat.albedo_color = Color(.5, .5, 1, .5)
-		mat.flags_transparent = true
-	
-	mesh_instance.mesh = mesh
-	mesh_instance.material_override = mat
-	
+	mesh_instance.mesh = st.commit()
+
+	# other method
+
+#	arr[Mesh.ARRAY_VERTEX] = verts
+#	arr[Mesh.ARRAY_TEX_UV] = uvs
+##	arr[Mesh.ARRAY_NORMAL] = normals
+#	arr[Mesh.ARRAY_INDEX] = indices
+#
+#	var mesh_instance = MeshInstance.new()
+#	var mesh: Mesh = Mesh.new()
+#	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+#
+#	var surfaceTool = SurfaceTool.new()
+#	surfaceTool.add_smooth_group(true)  # this don't work
+#	surfaceTool.append_from(mesh, 0, Transform.IDENTITY)
+#	surfaceTool.generate_normals()
+#	mesh = surfaceTool.commit()
+#	mesh_instance.mesh = mesh
+
 	return mesh_instance
