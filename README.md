@@ -114,6 +114,8 @@ func _exit_tree():
 
 Also, you could check the code of the included addon "angelqba.I2S.simple_object". It extends the functionality of the base addon to add a Simple Object Scatter functionality.
 
+NOTE: Included assets in demo folder are from [Kenney](https://www.kenney.nl)
+
 ## TO DO:
 
 - Integration with [HungryProton/scatter](https://github.com/HungryProton/scatter) addon for object placement.
